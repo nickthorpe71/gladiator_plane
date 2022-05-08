@@ -7,7 +7,7 @@ defmodule NameGen do
   end
 
   def alternate_rand_char(n) when rem(n, 2) === 0 do
-    Enum.random('bcdfghjklmnpqrstvwxyz')
+    Enum.random('bcdfghjklmnpqrstvwxyz\'\-')
   end
 
   def alternate_rand_char(_) do

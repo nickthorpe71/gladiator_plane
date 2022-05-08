@@ -4,6 +4,7 @@ defmodule GladiatorPlane.Repo.Migrations.AddBattleTicks do
   def change do
     create table(:battle_ticks) do
       add :battle_id, references(:battles, on_delete: :delete_all)
+      add :tick_number, :integer
       add :combatant1_action, :string
       add :combatant2_action, :string
       add :combatant1_health, :integer

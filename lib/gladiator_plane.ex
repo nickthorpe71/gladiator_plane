@@ -1,3 +1,5 @@
+import NameGen
+
 defmodule GladiatorPlane do
   # 1. generate random warriors
   # 2. make warriors able to fight
@@ -9,6 +11,7 @@ defmodule GladiatorPlane do
   # 6. warriors wander plane, eat fruit, fight, breed, and evolve
 
   def run do
-    IO.puts(NameGen.gen_name(:rand.uniform(6)))
+    :rand.uniform(6) |> gen_name() |> IO.puts()
+    :rand.uniform(10) |> gen_name() |> IO.puts()
   end
 end
