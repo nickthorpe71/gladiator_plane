@@ -10,6 +10,8 @@ defmodule GladiatorPlane do
   # 5. fruit spawns on plane
   # 6. warriors wander plane, eat fruit, fight, breed, and evolve
 
+  # https://www.youtube.com/watch?v=XvDShUHWg0Q&list=PLFhQVxlaKQElscjMvMmyMCaZ9mxf4XAw-&ab_channel=AlchemistCamp
+
   def run do
     :rand.uniform(6) |> gen_name() |> IO.puts()
     :rand.uniform(10) |> gen_name() |> IO.puts()
