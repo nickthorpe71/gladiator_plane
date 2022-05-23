@@ -1,6 +1,7 @@
 import Ecto.Query
 alias Ecto.Adapters.SQL
 alias GladiatorPlane.Repo
+alias GladiatorPlane.User
 
 users_to_insert =
   [

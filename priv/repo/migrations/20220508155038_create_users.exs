@@ -3,6 +3,7 @@ defmodule GladiatorPlane.Repo.Migrations.CreateUsers do
 
   def change do
     create table(:users) do
+      add :about, :text
       add :username, :string
       add :email, :string
 
