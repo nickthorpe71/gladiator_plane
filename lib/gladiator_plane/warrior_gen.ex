@@ -1,4 +1,4 @@
-defmodule GladiatorPlane.WarriorGen do
+defmodule GladiatorPlane.Warrior.Generator do
   import NameGen
   alias GladiatorPlane.Warrior
 
@@ -10,13 +10,16 @@ defmodule GladiatorPlane.WarriorGen do
     height = Enum.random(65..250) + :rand.uniform()
     weight = Enum.random(70..400) + :rand.uniform()
 
-    endurence =
-      Enum.random(1..90) - weight * rand_float(0, 0.075) - height * rand_float(0, 0.1) + 25
+    endurance =
+      Enum.random(1..75) - weight * rand_float(0, 0.075) - height * rand_float(0, 0.1) + 25
 
     intelligence = Enum.random(1..100)
     accuracy = (Enum.random(1..75) + intelligence / 4) * rand_float(0.85, 1.15)
-    flexibility = Enum.random(1..100) - weight * rand_float(0, 0.075)
+    flexibility = Enum.random(1..75) - weight * rand_float(0, 0.075) + 25
     dexterity = Enum.random(1..75) + accuracy / 4 * rand_float(0.85, 1.15)
+
+    max_health = Enum.random(100..1000)
+    max_endurance = endurance * 9 * rand_float(0.85, 1.15) + 100
 
     new_warrior = %{
       first_name: Enum.random(1..6) |> gen_name(),
@@ -34,9 +37,11 @@ defmodule GladiatorPlane.WarriorGen do
       total_damage_done: 0.0,
       ambition: Enum.random(1..100),
       intelligence: intelligence,
-      healthCapacity: Enum.random(100..1000),
-      enduranceCapacity: endurence * 9 * rand_float(0.85, 1.15) + 100,
-      endurance: endurence,
+      max_health: max_health,
+      current_health: max_health,
+      max_endurance: max_endurance,
+      current_endurance: max_endurance,
+      endurance: endurance,
       flexibility: flexibility,
       strength: (Enum.random(1..50) + weight / 40 + height / 8) * rand_float(0.85, 1.15),
       accuracy: accuracy,

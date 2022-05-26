@@ -1,18 +1,15 @@
 defmodule GladiatorPlane do
-  alias GladiatorPlane.WarriorGen
+  alias GladiatorPlane.Warrior.Generator, as: WarriorGen
+  alias GladiatorPlane.Battle.Simulation, as: BattleSim
   # 1. generate random warriors
   # 2. make warriors able to fight
   # 3. make warriors able to breed
 
-  # Later
-  # 4. warriors roam plane
-  # 5. fruit spawns on plane
-  # 6. warriors wander plane, eat fruit, fight, breed, and evolve
-
   def run do
     # GladiatorPlane.Repo.Seed.seed_all()
-    warrior = WarriorGen.random_warrior_struct()
-    IO.inspect(warrior)
-    warrior
+    warrior1 = WarriorGen.random_warrior_struct()
+    warrior2 = WarriorGen.random_warrior_struct()
+
+    BattleSim.start_battle(warrior1, warrior2)
   end
 end
