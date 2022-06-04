@@ -1,4 +1,6 @@
 defmodule GladiatorPlane.Battle.Simulation do
+  import GladiatorPlane.Utils, only: [rand_float: 2]
+
   def start_battle(warrior1, warrior2) do
     # Process.send_after(self(), :ping, 1000)
 
@@ -65,17 +67,29 @@ defmodule GladiatorPlane.Battle.Simulation do
     }
   end
 
-  ## Battle Calculations
-  # // calculated at the beginning of battle
-  # power = strength * speed / 100
-  # toughness = strength * ambition / 100
+  # Battle Calculations
+  def damage(attacker, defender),
+    do: attacker.power / defender.toughness + 2 + crit_damage(attacker) + rand_float(0.85, 1.15)
 
-  # // calculated on the fly
-  # damage = (attackers_power / defenders_toughness + 2) + crit_damage * rand(0.85, 1.15)
-  # crit_chance = (accuracy * dexterity * reflex * intelligence * ambition / 10000000 / 2 * rand(0.85, 1.15)) / 100
-  # crit_damage = power * rand(0.85, 1.15)
-  # endurance_cost_attack = endurance * damage * / 100 * rand(0.85, 1.15)
-  # endurance_cost_block = abs(endurance - toughness) / 10 * rand(0.85, 1.15)
+  def crit_damage(%{power: power}), do: power * rand_float(0.85, 1.15)
+
+  def crit_chance(warrior) do
+    warrior.accuracy * warrior.dexterity * warrior.reflex * warrior.ambition *
+      warrior.intelligence / 10_000_000 / 2 * rand_float(0.85, 1.15) / 100
+  end
+
+  def endurance_cost_attack(%{endurance: endurance}, attack_damage) do
+    endurance * attack_damage / 100 * rand_float(0.85, 1.15)
+  end
+
+  def endurance_cost_block(%{endurance: endurance, toughness: toughness}) do
+    (endurance - toughness) / 10 * rand_float(0.85, 1.15)
+  end
+
+  # def endurance_cost_dodge(%{endurance: endurance, reflex: reflex, speed: speed}) do
+  #   (endurance - toughness) / 10 * rand_float(0.85, 1.15)
+  # end
+
   # endurance_cost_dodge = abs(endurance - reflex/2 - speed/2) / 10 * rand(0.85, 1.15)
   # counter_chance_block = (strength + toughness + reflex + intelligence) / 500
   # counter_chance_dodge = (speed + dexterity + reflex + intelligence) / 500
