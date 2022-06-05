@@ -10,6 +10,6 @@ defmodule GladiatorPlane do
     warrior2 = WarriorGen.random_warrior_struct()
 
     # BattleSim.start_battle(warrior1, warrior2)
-    BattleSim.start()
+    BattleSim.start(warrior1, warrior2, 60 * 3)
   end
 end
