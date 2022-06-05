@@ -1,5 +1,20 @@
 defmodule GladiatorPlane.Battle.Simulation do
   import GladiatorPlane.Utils, only: [rand_float: 2]
+  use GenServer
+
+  def start do
+    GenServer.start(GladiatorPlane.Battle.Simulation, %{})
+  end
+
+  def init(_) do
+    :timer.send_interval(1000, :tick)
+    {:ok, 0}
+  end
+
+  def handle_info(:tick, state) do
+    IO.inspect(state)
+    {:noreply, state + 1}
+  end
 
   def start_battle(warrior1, warrior2) do
     # Process.send_after(self(), :ping, 1000)
