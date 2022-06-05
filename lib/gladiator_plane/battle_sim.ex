@@ -2,7 +2,7 @@ defmodule GladiatorPlane.Battle.Simulation do
   import GladiatorPlane.Utils, only: [rand_float: 2]
   use GenServer
 
-  @battle_rate 1000
+  @battle_rate 10
 
   def start(warrior1, warrior2, battle_length) do
     GenServer.start(
@@ -46,11 +46,12 @@ defmodule GladiatorPlane.Battle.Simulation do
     |> increment_elapsed_time
     |> decrement_warriors_next_action_timer
     |> apply_actions
+    |> increment_warrior_endurence
 
     # reduce endruance of attacker
     # if a warrior acts check if the other warripr can react
     # if the other warrior can react then play that action
-    # repeat indefinitely
+    # repeat
 
     # battle_state = %{battle_state | winner: battle_state[:warrior1]}
     # battle_state = %{battle_state | loser: battle_state[:warrior2]}
@@ -67,52 +68,95 @@ defmodule GladiatorPlane.Battle.Simulation do
     }
   end
 
-  defp apply_actions(battle_state) when battle_state.warrior1_next_action <= 0 do
+  defp increment_warrior_endurence(%{warrior1: warrior1, warrior2: warrior2} = battle_state) do
     %{
       battle_state
-      | warrior1_next_action: action_frequency(battle_state.warrior1),
-        warrior2:
-          battle_state.warrior2
-          |> attempt_attack(battle_state.warrior1)
-    }
-  end
-
-  defp apply_actions(battle_state) when battle_state.warrior2_next_action <= 0 do
-    %{
-      battle_state
-      | warrior2_next_action: action_frequency(battle_state.warrior2),
-        warrior1:
-          battle_state.warrior1
-          |> attempt_attack(battle_state.warrior2)
+      | warrior1: %{
+          warrior1
+          | current_endurance: warrior1.current_endurance + endurance_regen(warrior1)
+        },
+        warrior2: %{
+          warrior2
+          | current_endurance: warrior2.current_endurance + endurance_regen(warrior2)
+        }
     }
   end
 
   defp apply_actions(battle_state)
-       when battle_state.warrior2_next_action <= 0 and battle_state.warrior1_next_action <= 0 do
+       when battle_state.warrior1_next_action <= 0 and battle_state.warrior1.current_endurance > 0 and
+              battle_state.warrior2_next_action <= 0 and
+              battle_state.warrior2.current_endurance > 0 do
     %{
       battle_state
       | warrior1_next_action: action_frequency(battle_state.warrior1),
-        warrior2_next_action: action_frequency(battle_state.warrior2),
-        warrior1:
-          battle_state.warrior1
-          |> attempt_attack(battle_state.warrior2),
-        warrior2:
-          battle_state.warrior2
-          |> attempt_attack(battle_state.warrior1)
+        warrior2_next_action: action_frequency(battle_state.warrior2)
     }
+    |> attempt_attack(:warrior1_attacking)
+    |> attempt_attack(:warrior2_attacking)
+  end
+
+  defp apply_actions(battle_state)
+       when battle_state.warrior1_next_action <= 0 and battle_state.warrior1.current_endurance > 0 do
+    %{
+      battle_state
+      | warrior1_next_action: action_frequency(battle_state.warrior1)
+    }
+    |> attempt_attack(:warrior1_attacking)
+  end
+
+  defp apply_actions(battle_state)
+       when battle_state.warrior2_next_action <= 0 and battle_state.warrior2.current_endurance > 0 do
+    %{
+      battle_state
+      | warrior2_next_action: action_frequency(battle_state.warrior2)
+    }
+    |> attempt_attack(:warrior2_attacking)
   end
 
   defp apply_actions(battle_state) do
     battle_state
   end
 
-  defp attempt_attack(defender, attacker) do
-    if does_attack_hit(defender, attacker) == true do
-      apply_attack_damage(defender, attacker)
-    else
-      IO.puts("#{attacker.first_name} missed!")
-      defender
-    end
+  defp attempt_attack(
+         %{warrior1: attacker, warrior2: defender} = battle_state,
+         :warrior1_attacking
+       ) do
+    # reduce attackers endurance
+    attacker = %{
+      attacker
+      | current_endurance: attacker.current_endurance - endurance_cost_attack(attacker)
+    }
+
+    defender =
+      if attack_does_hit(defender, attacker) == true do
+        apply_attack_damage(defender, attacker)
+      else
+        IO.puts("#{attacker.first_name} missed!")
+        defender
+      end
+
+    %{battle_state | warrior1: attacker, warrior2: defender}
+  end
+
+  defp attempt_attack(
+         %{warrior2: attacker, warrior1: defender} = battle_state,
+         :warrior2_attacking
+       ) do
+    # reduce attackers endurance
+    attacker = %{
+      attacker
+      | current_endurance: attacker.current_endurance - endurance_cost_attack(attacker)
+    }
+
+    defender =
+      if attack_does_hit(defender, attacker) == true do
+        apply_attack_damage(defender, attacker)
+      else
+        IO.puts("#{attacker.first_name} missed!")
+        defender
+      end
+
+    %{battle_state | warrior2: attacker, warrior1: defender}
   end
 
   defp apply_attack_damage(defender, attacker) do
@@ -141,7 +185,7 @@ defmodule GladiatorPlane.Battle.Simulation do
     IO.puts("--------")
 
     IO.puts(
-      "#{warrior1.first_name} HP: #{warrior1.current_health} | #{warrior2.first_name} HP: #{warrior2.current_health}"
+      "#{warrior1.first_name} HP: #{warrior1.current_health} END: #{warrior1.current_endurance} | #{warrior2.first_name} HP: #{warrior2.current_health} END: #{warrior2.current_endurance}"
     )
   end
 
@@ -151,14 +195,14 @@ defmodule GladiatorPlane.Battle.Simulation do
 
   # Battle Calculations
   def damage(defender, attacker) do
-    attacker.power / defender.toughness * 50 + 2 +
+    attacker.power / defender.toughness * 10 + 2 +
       crit_damage(attacker) * rand_float(0.85, 1.15)
   end
 
-  def crit_damage(%{power: power} = warrior) do
+  def crit_damage(%{power: power, ambition: ambition} = warrior) do
     if did_crit(warrior) do
       IO.puts("#{warrior.first_name} landed a cirtical hit!")
-      power * rand_float(0.85, 1.15)
+      power * rand_float(0.9, 1 + ambition / 25)
     else
       0
     end
@@ -170,11 +214,15 @@ defmodule GladiatorPlane.Battle.Simulation do
 
   def crit_chance(warrior) do
     warrior.accuracy * warrior.dexterity * warrior.reflex * warrior.ambition *
-      warrior.intelligence / 7_000_000 * rand_float(0.6, 2) / 100
+      warrior.intelligence / 9_000_000 * rand_float(0.6, 2) / 100
   end
 
-  def endurance_cost_attack(%{endurance: endurance}, attack_damage) do
-    endurance * attack_damage / 100 * rand_float(0.85, 1.15)
+  def endurance_regen(%{endurance: endurance}) do
+    3 + endurance / 20 * rand_float(0.85, 1.15)
+  end
+
+  def endurance_cost_attack(%{endurance: endurance}) do
+    100 - endurance * rand_float(0.5, 1)
   end
 
   # def endurance_cost_block(%{endurance: endurance, toughness: toughness}) do
@@ -203,7 +251,7 @@ defmodule GladiatorPlane.Battle.Simulation do
   #   (speed + dexterity + reflex + intelligence) / 500
   # end
 
-  def action_frequency(%{speed: speed, ambition: ambition}), do: 10 - speed / 20 - ambition / 25
+  def action_frequency(%{speed: speed, ambition: ambition}), do: 20 - speed / 10 - ambition / 11
 
   # def stat_estimation_accuracy(%{intelligence: intelligence}),
   #   do: intelligence / 100 * rand_float(0.85, 1.15)
@@ -211,6 +259,6 @@ defmodule GladiatorPlane.Battle.Simulation do
   # def defender_can_react(defender, attacker),
   #   do: defender.speed / attacker.speed * defender.reflex * rand_float(0.85, 1.15) > 50
 
-  def does_attack_hit(defender, attacker),
+  def attack_does_hit(defender, attacker),
     do: attacker.accuracy / defender.reflex * rand_float(0.5, 3) >= 1
 end

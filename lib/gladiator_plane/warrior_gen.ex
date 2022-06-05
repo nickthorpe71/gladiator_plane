@@ -8,7 +8,8 @@ defmodule GladiatorPlane.Warrior.Generator do
     weight = Enum.random(70..400) + :rand.uniform() + height / 5
 
     endurance =
-      Enum.random(5..75) - weight * rand_float(0, 0.075) - height * rand_float(0, 0.1) + 25
+      (Enum.random(1..100) - weight * rand_float(0, 0.075) - height * rand_float(0, 0.1)) *
+        rand_float(0.85, 1.15) + 25
 
     intelligence = Enum.random(10..100)
     strength = (Enum.random(2..50) + weight / 40 + height / 8) * rand_float(0.85, 1.15)
@@ -18,13 +19,13 @@ defmodule GladiatorPlane.Warrior.Generator do
     flexibility = Enum.random(5..75) - weight * rand_float(0, 0.075) + 25
     dexterity = Enum.random(5..75) + accuracy / 4 * rand_float(0.85, 1.15)
 
-    max_health = Enum.random(100..1000)
-    max_endurance = endurance * 9 * rand_float(0.85, 1.15) + 100
+    max_health = Enum.random(100..1000) + height / 5 + weight / 5
+    max_endurance = endurance * 10 * rand_float(0.85, 1.15)
 
     new_warrior = %{
-      first_name: Enum.random(1..6) |> gen_name(),
-      last_name: Enum.random(1..10) |> gen_name(),
-      nickname: Enum.random(1..10) |> gen_name(),
+      first_name: Enum.random(1..7) |> gen_name(),
+      last_name: Enum.random(1..12) |> gen_name(),
+      nickname: Enum.random(1..9) |> gen_name(),
       age: Enum.random(10..150),
       reproduction_side: choose_reproduction(),
       height: height,
@@ -50,8 +51,8 @@ defmodule GladiatorPlane.Warrior.Generator do
         Enum.random(20..30) + flexibility / 4 + dexterity / 4 - weight * rand_float(0, 0.075) -
           height * rand_float(0, 0.1),
       speed: speed,
-      power: strength + speed / 2,
-      toughness: strength + ambition / 2
+      power: (strength + speed) / 2,
+      toughness: (strength + ambition) / 2
     }
 
     new_warrior
