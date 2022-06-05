@@ -2,7 +2,7 @@ defmodule GladiatorPlane.Battle.Simulation do
   import GladiatorPlane.Utils, only: [rand_float: 2]
   use GenServer
 
-  @battle_rate 10
+  @battle_rate 1000
 
   def start(warrior1, warrior2, battle_length) do
     GenServer.start(
@@ -150,20 +150,27 @@ defmodule GladiatorPlane.Battle.Simulation do
   end
 
   # Battle Calculations
-  def damage(defender, attacker),
-    do: attacker.power / defender.toughness + 2 + crit_damage(attacker) + rand_float(0.85, 1.15)
+  def damage(defender, attacker) do
+    attacker.power / defender.toughness * 50 + 2 +
+      crit_damage(attacker) * rand_float(0.85, 1.15)
+  end
 
   def crit_damage(%{power: power} = warrior) do
-    if crit_chance(warrior) do
+    if did_crit(warrior) do
+      IO.puts("#{warrior.first_name} landed a cirtical hit!")
       power * rand_float(0.85, 1.15)
     else
       0
     end
   end
 
+  defp did_crit(warrior) do
+    crit_chance(warrior) > 0.9
+  end
+
   def crit_chance(warrior) do
     warrior.accuracy * warrior.dexterity * warrior.reflex * warrior.ambition *
-      warrior.intelligence / 10_000_000 / 2 * rand_float(0.85, 1.15) / 100
+      warrior.intelligence / 7_000_000 * rand_float(0.6, 2) / 100
   end
 
   def endurance_cost_attack(%{endurance: endurance}, attack_damage) do
@@ -205,5 +212,5 @@ defmodule GladiatorPlane.Battle.Simulation do
   #   do: defender.speed / attacker.speed * defender.reflex * rand_float(0.85, 1.15) > 50
 
   def does_attack_hit(defender, attacker),
-    do: attacker.accuracy / defender.reflex * rand_float(0.75, 1.25) >= 1
+    do: attacker.accuracy / defender.reflex * rand_float(0.5, 3) >= 1
 end
