@@ -23,14 +23,12 @@ defmodule GladiatorPlane.Battle.Simulation do
     {:noreply, battle_tick(state)}
   end
 
-  defp battle_tick(%{warrior1: %{current_health: current_health}} = battle_state)
-       when current_health <= 0 do
+  defp battle_tick(battle_state) when battle_state.warrior1.battle_stats.current_health <= 0 do
     display_results(battle_state)
     exit(:normal)
   end
 
-  defp battle_tick(%{warrior2: %{current_health: current_health}} = battle_state)
-       when current_health <= 0 do
+  defp battle_tick(battle_state) when battle_state.warrior2.battle_stats.current_health <= 0 do
     display_results(battle_state)
     exit(:normal)
   end
@@ -47,68 +45,71 @@ defmodule GladiatorPlane.Battle.Simulation do
     |> decrement_warriors_next_action_timer
     |> apply_actions
     |> increment_warrior_endurence
-
-    # reduce endruance of attacker
-    # if a warrior acts check if the other warripr can react
-    # if the other warrior can react then play that action
-    # repeat
-
-    # battle_state = %{battle_state | winner: battle_state[:warrior1]}
-    # battle_state = %{battle_state | loser: battle_state[:warrior2]}
   end
 
   defp increment_elapsed_time(%{elapsed_time: elapsed_time} = battle_state),
     do: %{battle_state | elapsed_time: elapsed_time + 1}
 
-  defp decrement_warriors_next_action_timer(battle_state) do
+  defp decrement_warriors_next_action_timer(
+         %{warrior1: warrior1, warrior2: warrior2} = battle_state
+       ) do
     %{
       battle_state
-      | warrior1_next_action: battle_state.warrior1_next_action - 1,
-        warrior2_next_action: battle_state.warrior2_next_action - 1
+      | warrior1: %{
+          warrior1
+          | battle_stats: %{
+              warrior1.battle_stats
+              | next_action: warrior1.battle_stats.next_action - 1
+            }
+        },
+        warrior2: %{
+          warrior2
+          | battle_stats: %{
+              warrior2.battle_stats
+              | next_action: warrior2.battle_stats.next_action - 1
+            }
+        }
     }
   end
 
   defp increment_warrior_endurence(%{warrior1: warrior1, warrior2: warrior2} = battle_state) do
     %{
       battle_state
-      | warrior1: %{
-          warrior1
-          | current_endurance: warrior1.current_endurance + endurance_regen(warrior1)
-        },
-        warrior2: %{
-          warrior2
-          | current_endurance: warrior2.current_endurance + endurance_regen(warrior2)
-        }
+      | warrior1: warrior1 |> adjust_warrior_endurance(endurance_regen(warrior1.base_stats)),
+        warrior2: warrior2 |> adjust_warrior_endurance(endurance_regen(warrior2.base_stats))
     }
   end
 
-  defp apply_actions(battle_state)
-       when battle_state.warrior1_next_action <= 0 and battle_state.warrior1.current_endurance > 0 and
-              battle_state.warrior2_next_action <= 0 and
-              battle_state.warrior2.current_endurance > 0 do
+  defp apply_actions(%{warrior1: warrior1, warrior2: warrior2} = battle_state)
+       when warrior1.battle_stats.next_action <= 0 and
+              warrior1.battle_stats.current_endurance > 0 and
+              warrior2.battle_stats.next_action <= 0 and
+              warrior2.battle_stats.current_endurance > 0 do
     %{
       battle_state
-      | warrior1_next_action: action_frequency(battle_state.warrior1),
-        warrior2_next_action: action_frequency(battle_state.warrior2)
+      | warrior1: warrior1 |> adjust_warrior_next_action(action_frequency(warrior1.base_stats)),
+        warrior2: warrior2 |> adjust_warrior_next_action(action_frequency(warrior2.base_stats))
     }
     |> attempt_attack(:warrior1_attacking)
     |> attempt_attack(:warrior2_attacking)
   end
 
-  defp apply_actions(battle_state)
-       when battle_state.warrior1_next_action <= 0 and battle_state.warrior1.current_endurance > 0 do
+  defp apply_actions(%{warrior1: warrior1} = battle_state)
+       when warrior1.battle_stats.next_action <= 0 and
+              warrior1.battle_stats.current_endurance > 0 do
     %{
       battle_state
-      | warrior1_next_action: action_frequency(battle_state.warrior1)
+      | warrior1: warrior1 |> adjust_warrior_next_action(action_frequency(warrior1.base_stats))
     }
     |> attempt_attack(:warrior1_attacking)
   end
 
-  defp apply_actions(battle_state)
-       when battle_state.warrior2_next_action <= 0 and battle_state.warrior2.current_endurance > 0 do
+  defp apply_actions(%{warrior2: warrior2} = battle_state)
+       when warrior2.battle_stats.next_action <= 0 and
+              warrior2.battle_stats.current_endurance > 0 do
     %{
       battle_state
-      | warrior2_next_action: action_frequency(battle_state.warrior2)
+      | warrior2: warrior2 |> adjust_warrior_next_action(action_frequency(warrior2.base_stats))
     }
     |> attempt_attack(:warrior2_attacking)
   end
@@ -121,17 +122,18 @@ defmodule GladiatorPlane.Battle.Simulation do
          %{warrior1: attacker, warrior2: defender} = battle_state,
          :warrior1_attacking
        ) do
-    # reduce attackers endurance
-    attacker = %{
-      attacker
-      | current_endurance: attacker.current_endurance - endurance_cost_attack(attacker)
-    }
+    attacker = adjust_warrior_endurance(attacker, endurance_cost_attack(attacker.base_stats))
+    damage = damage(defender.base_stats, attacker.base_stats)
 
     defender =
-      if attack_does_hit(defender, attacker) == true do
-        apply_attack_damage(defender, attacker)
+      if attack_does_hit(defender.base_stats, attacker.base_stats) == true do
+        IO.puts(
+          "#{attacker.base_stats.first_name} did #{damage} to #{defender.base_stats.first_name}"
+        )
+
+        adjsut_warrior_health(defender, -damage)
       else
-        IO.puts("#{attacker.first_name} missed!")
+        IO.puts("#{attacker.base_stats.first_name} missed!")
         defender
       end
 
@@ -142,29 +144,51 @@ defmodule GladiatorPlane.Battle.Simulation do
          %{warrior2: attacker, warrior1: defender} = battle_state,
          :warrior2_attacking
        ) do
-    # reduce attackers endurance
-    attacker = %{
-      attacker
-      | current_endurance: attacker.current_endurance - endurance_cost_attack(attacker)
-    }
+    attacker = adjust_warrior_endurance(attacker, endurance_cost_attack(attacker.base_stats))
+    damage = damage(defender.base_stats, attacker.base_stats)
 
     defender =
-      if attack_does_hit(defender, attacker) == true do
-        apply_attack_damage(defender, attacker)
+      if attack_does_hit(defender.base_stats, attacker.base_stats) == true do
+        IO.puts(
+          "#{attacker.base_stats.first_name} did #{damage} to #{defender.base_stats.first_name}"
+        )
+
+        adjsut_warrior_health(defender, -damage)
       else
-        IO.puts("#{attacker.first_name} missed!")
+        IO.puts("#{attacker.base_stats.first_name} missed!")
         defender
       end
 
     %{battle_state | warrior2: attacker, warrior1: defender}
   end
 
-  defp apply_attack_damage(defender, attacker) do
-    IO.puts("#{attacker.first_name} did #{damage(defender, attacker)} to #{defender.first_name}")
-
+  defp adjsut_warrior_health(warrior, to_adjust_by) do
     %{
-      defender
-      | current_health: defender.current_health - damage(defender, attacker)
+      warrior
+      | battle_stats: %{
+          warrior.battle_stats
+          | current_health: warrior.battle_stats.current_health + to_adjust_by
+        }
+    }
+  end
+
+  defp adjust_warrior_endurance(warrior, to_adjust_by) do
+    %{
+      warrior
+      | battle_stats: %{
+          warrior.battle_stats
+          | current_endurance: warrior.battle_stats.current_endurance + to_adjust_by
+        }
+    }
+  end
+
+  defp adjust_warrior_next_action(warrior, to_adjust_by) do
+    %{
+      warrior
+      | battle_stats: %{
+          warrior.battle_stats
+          | next_action: warrior.battle_stats.next_action + to_adjust_by
+        }
     }
   end
 
@@ -172,12 +196,24 @@ defmodule GladiatorPlane.Battle.Simulation do
     %{
       elapsed_time: 0,
       battle_length: length,
-      warrior1: warrior1,
-      warrior2: warrior2,
-      warrior1_next_action: action_frequency(warrior1),
-      warrior2_next_action: action_frequency(warrior2),
+      warrior1: %{base_stats: warrior1, battle_stats: init_warrior_battle_stats(warrior1)},
+      warrior2: %{base_stats: warrior2, battle_stats: init_warrior_battle_stats(warrior2)},
       winner: nil,
       loser: nil
+    }
+  end
+
+  defp init_warrior_battle_stats(warrior) do
+    %{
+      next_action: action_frequency(warrior),
+      current_health: warrior.max_health,
+      current_endurance: warrior.max_endurance,
+      damage_done: 0,
+      total_attacks: 0,
+      number_of_hits: 0,
+      number_of_misses: 0,
+      number_of_crits: 0,
+      score: 0
     }
   end
 
@@ -185,7 +221,7 @@ defmodule GladiatorPlane.Battle.Simulation do
     IO.puts("--------")
 
     IO.puts(
-      "#{warrior1.first_name} HP: #{warrior1.current_health} END: #{warrior1.current_endurance} | #{warrior2.first_name} HP: #{warrior2.current_health} END: #{warrior2.current_endurance}"
+      "#{warrior1.base_stats.first_name} HP: #{warrior1.base_stats.current_health} END: #{warrior1.base_stats.current_endurance} | #{warrior2.base_stats.first_name} HP: #{warrior2.base_stats.current_health} END: #{warrior2.base_stats.current_endurance}"
     )
   end
 
@@ -199,10 +235,10 @@ defmodule GladiatorPlane.Battle.Simulation do
       crit_damage(attacker) * rand_float(0.85, 1.15)
   end
 
-  def crit_damage(%{power: power, ambition: ambition} = warrior) do
+  def crit_damage(warrior) do
     if did_crit(warrior) do
       IO.puts("#{warrior.first_name} landed a cirtical hit!")
-      power * rand_float(0.9, 1 + ambition / 25)
+      warrior.power * rand_float(0.9, 1 + warrior.ambition / 25)
     else
       0
     end
@@ -251,7 +287,8 @@ defmodule GladiatorPlane.Battle.Simulation do
   #   (speed + dexterity + reflex + intelligence) / 500
   # end
 
-  def action_frequency(%{speed: speed, ambition: ambition}), do: 20 - speed / 10 - ambition / 11
+  def action_frequency(%{speed: speed, ambition: ambition}),
+    do: 20 - speed / 10 - ambition / 11
 
   # def stat_estimation_accuracy(%{intelligence: intelligence}),
   #   do: intelligence / 100 * rand_float(0.85, 1.15)
